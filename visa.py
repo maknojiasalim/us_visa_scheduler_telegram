@@ -25,6 +25,7 @@ PASSWORD = config['PERSONAL_INFO']['PASSWORD']
 # Find SCHEDULE_ID in re-schedule page link:
 # https://ais.usvisa-info.com/en-am/niv/schedule/{SCHEDULE_ID}/appointment
 SCHEDULE_ID = config['PERSONAL_INFO']['SCHEDULE_ID']
+GROUP_ID = config['PERSONAL_INFO']['GROUP_ID']
 # Target Period:
 PRIOD_START = config['PERSONAL_INFO']['PRIOD_START']
 PRIOD_END = config['PERSONAL_INFO']['PRIOD_END']
@@ -64,6 +65,7 @@ APPOINTMENT_URL = f"https://ais.usvisa-info.com/{EMBASSY}/niv/schedule/{SCHEDULE
 DATE_URL = f"https://ais.usvisa-info.com/{EMBASSY}/niv/schedule/{SCHEDULE_ID}/appointment/days/{FACILITY_ID}.json?appointments[expedite]=false"
 TIME_URL = f"https://ais.usvisa-info.com/{EMBASSY}/niv/schedule/{SCHEDULE_ID}/appointment/times/{FACILITY_ID}.json?date=%s&appointments[expedite]=false"
 SIGN_OUT_LINK = f"https://ais.usvisa-info.com/{EMBASSY}/niv/users/sign_out"
+GROUP_LINK = f"https://ais.usvisa-info.com/en-il/niv/groups/{GROUP_ID}"
 
 JS_SCRIPT = ("var req = new XMLHttpRequest();"
              f"req.open('GET', '%s', false);"
@@ -169,6 +171,11 @@ def get_time(date):
     print(f"Got time successfully! {date} {time}")
     return time
 
+def get_current_appointment_date():
+    driver.get(GROUP_LINK)
+    date_str = ' '.join(driver.find_elements(by=By.CLASS_NAME, value="consular-appt")[0].text.split(' ')[2:5])
+    return datetime.strptime(date_str, '%d %B, %Y,')
+
 
 def is_logged_in():
     content = driver.page_source
@@ -177,7 +184,7 @@ def is_logged_in():
     return True
 
 
-def get_available_date(dates):
+def get_available_date(dates, current_appointment_date):
     # Evaluation of different available dates
     def is_in_period(date, PSD, PED):
         new_date = datetime.strptime(date, "%Y-%m-%d")
@@ -186,6 +193,8 @@ def get_available_date(dates):
         return result
 
     PED = datetime.strptime(PRIOD_END, "%Y-%m-%d")
+    if current_appointment_date:
+        PED = min(PED, current_appointment_date)
     PSD = datetime.strptime(PRIOD_START, "%Y-%m-%d")
     for d in dates:
         date = d.get('date')
@@ -214,18 +223,22 @@ else:
 if __name__ == "__main__":
     first_loop = True
     previous_date = str(datetime.now().date())
+    current_appointment_date = None
     while 1:
         current_date = str(datetime.now().date())
         LOG_FILE_NAME = f"log_{current_date}.txt"
-        if first_loop or current_date != previous_date:
-            send_notification('NEW_DAY', 'Its a new day. No news from me. Still working...')
+        if current_date != previous_date:
+            send_notification('NEW_DAY', f'Its a new day. No news. Still working...')
         previous_date = current_date
         if first_loop:
             t0 = time.time()
             total_time = 0
             Req_count = 0
             start_process()
+            current_appointment_date = get_current_appointment_date()
+            send_notification('FIRST_RUN', f'Current appointment date: {current_appointment_date.strftime("%Y-%m-%d")}. Working...')
             first_loop = False
+
         Req_count += 1
         try:
             msg = "-" * 60 + f"\nRequest count: {Req_count}, Log time: {datetime.today()}\n"
@@ -249,12 +262,12 @@ if __name__ == "__main__":
                 msg = "Available dates:\n"+ msg
                 print(msg)
                 info_logger(LOG_FILE_NAME, msg)
-                date = get_available_date(dates)
+                date = get_available_date(dates, current_appointment_date)
                 if date:
                     # A good date to schedule for
                     END_MSG_TITLE, msg = reschedule(date)
                     send_notification(END_MSG_TITLE, msg)
-                    break
+                    current_appointment_date = date
                 RETRY_WAIT_TIME = random.randint(RETRY_TIME_L_BOUND, RETRY_TIME_U_BOUND)
                 t1 = time.time()
                 total_time = t1 - t0
