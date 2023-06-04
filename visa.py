@@ -6,14 +6,12 @@ import configparser
 from datetime import datetime
 
 from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait as Wait
 from selenium.webdriver.common.by import By
 from webdriver_manager.chrome import ChromeDriverManager
-
-from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail
 
 from embassy import *
 
@@ -31,22 +29,15 @@ SCHEDULE_ID = config['PERSONAL_INFO']['SCHEDULE_ID']
 PRIOD_START = config['PERSONAL_INFO']['PRIOD_START']
 PRIOD_END = config['PERSONAL_INFO']['PRIOD_END']
 # Embassy Section:
-YOUR_EMBASSY = config['PERSONAL_INFO']['YOUR_EMBASSY'] 
+YOUR_EMBASSY = config['PERSONAL_INFO']['YOUR_EMBASSY']
 EMBASSY = Embassies[YOUR_EMBASSY][0]
 FACILITY_ID = Embassies[YOUR_EMBASSY][1]
 REGEX_CONTINUE = Embassies[YOUR_EMBASSY][2]
 
 # Notification:
-# Get email notifications via https://sendgrid.com/ (Optional)
-SENDGRID_API_KEY = config['NOTIFICATION']['SENDGRID_API_KEY']
-# Get push notifications via https://pushover.net/ (Optional)
-PUSHOVER_TOKEN = config['NOTIFICATION']['PUSHOVER_TOKEN']
-PUSHOVER_USER = config['NOTIFICATION']['PUSHOVER_USER']
-# Get push notifications via PERSONAL WEBSITE http://yoursite.com (Optional)
-PERSONAL_SITE_USER = config['NOTIFICATION']['PERSONAL_SITE_USER']
-PERSONAL_SITE_PASS = config['NOTIFICATION']['PERSONAL_SITE_PASS']
-PUSH_TARGET_EMAIL = config['NOTIFICATION']['PUSH_TARGET_EMAIL']
-PERSONAL_PUSHER_URL = config['NOTIFICATION']['PERSONAL_PUSHER_URL']
+TELEGRAM_BOT_TOKEN = config['NOTIFICATION']['TELEGRAM_BOT_TOKEN']
+TELEGRAM_CHAT_ID = config['NOTIFICATION']['TELEGRAM_CHAT_ID']
+TELEGRAM_MESSAGE_THREAD_ID = config['NOTIFICATION']['TELEGRAM_MESSAGE_THREAD_ID']
 
 # Time Section:
 minute = 60
@@ -84,32 +75,12 @@ JS_SCRIPT = ("var req = new XMLHttpRequest();"
 
 def send_notification(title, msg):
     print(f"Sending notification!")
-    if SENDGRID_API_KEY:
-        message = Mail(from_email=USERNAME, to_emails=USERNAME, subject=msg, html_content=msg)
-        try:
-            sg = SendGridAPIClient(SENDGRID_API_KEY)
-            response = sg.send(message)
-            print(response.status_code)
-            print(response.body)
-            print(response.headers)
-        except Exception as e:
-            print(e.message)
-    if PUSHOVER_TOKEN:
-        url = "https://api.pushover.net/1/messages.json"
+    if TELEGRAM_BOT_TOKEN:
+        url = f'https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage'
         data = {
-            "token": PUSHOVER_TOKEN,
-            "user": PUSHOVER_USER,
-            "message": msg
-        }
-        requests.post(url, data)
-    if PERSONAL_SITE_USER:
-        url = PERSONAL_PUSHER_URL
-        data = {
-            "title": "VISA - " + str(title),
-            "user": PERSONAL_SITE_USER,
-            "pass": PERSONAL_SITE_PASS,
-            "email": PUSH_TARGET_EMAIL,
-            "msg": msg,
+            'chat_id': TELEGRAM_CHAT_ID,
+            'message_thread_id': TELEGRAM_MESSAGE_THREAD_ID,
+            'text': msg,
         }
         requests.post(url, data)
 
@@ -213,7 +184,7 @@ def get_available_date(dates):
         result = ( PED > new_date and new_date > PSD )
         # print(f'{new_date.date()} : {result}', end=", ")
         return result
-    
+
     PED = datetime.strptime(PRIOD_END, "%Y-%m-%d")
     PSD = datetime.strptime(PRIOD_START, "%Y-%m-%d")
     for d in dates:
@@ -230,15 +201,25 @@ def info_logger(file_path, log):
 
 
 if LOCAL_USE:
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
+    options = Options()
+    options.add_argument("--headless")
+    options.add_argument("--disable-extensions")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--no-sandbox")
+    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 else:
     driver = webdriver.Remote(command_executor=HUB_ADDRESS, options=webdriver.ChromeOptions())
 
 
 if __name__ == "__main__":
     first_loop = True
+    previous_date = str(datetime.now().date())
     while 1:
-        LOG_FILE_NAME = "log_" + str(datetime.now().date()) + ".txt"
+        current_date = str(datetime.now().date())
+        LOG_FILE_NAME = f"log_{current_date}.txt"
+        if first_loop or current_date != previous_date:
+            send_notification('NEW_DAY', 'Its a new day. No news from me. Still working...')
+        previous_date = current_date
         if first_loop:
             t0 = time.time()
             total_time = 0
@@ -272,6 +253,7 @@ if __name__ == "__main__":
                 if date:
                     # A good date to schedule for
                     END_MSG_TITLE, msg = reschedule(date)
+                    send_notification(END_MSG_TITLE, msg)
                     break
                 RETRY_WAIT_TIME = random.randint(RETRY_TIME_L_BOUND, RETRY_TIME_U_BOUND)
                 t1 = time.time()

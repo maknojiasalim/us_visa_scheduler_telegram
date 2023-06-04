@@ -18,17 +18,11 @@ LOCAL_USE = True
 HUB_ADDRESS = http://localhost:9515/wd/hub
 
 [NOTIFICATION]
-; Get push notifications via https://pushover.net/ (optional)
-PUSHOVER_TOKEN = 
-PUSHOVER_USER = 
-; Get email notifications via https://sendgrid.com/ (optional)
-SENDGRID_API_KEY = 
-; Get push notifications via PERSONAL WEBSITE http://yoursite.com (Optional)
-PERSONAL_SITE_USER = *********
-PERSONAL_SITE_PASS = *********
-PUSH_TARGET_EMAIL = notifyemail@gmail.com
-PERSONAL_PUSHER_URL = https://yoursite.com/api/esender.php
-
+; Telegram
+TELEGRAM_BOT_TOKEN =
+TELEGRAM_CHAT_ID =
+; only if you need it (for threads in channels)
+TELEGRAM_MESSAGE_THREAD_ID =
 [TIME]
 ; Time between retries/checks for available dates (seconds)
 RETRY_TIME_L_BOUND = 10

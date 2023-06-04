@@ -10,4 +10,7 @@ Embassies = {
     "en-ca-que": ["en-ca", 93, "Continue"], # English - Canada - Quebec City
     "en-ca-tor": ["en-ca", 94, "Continue"], # English - Canada - Toronto
     "en-ca-van": ["en-ca", 95, "Continue"], # English - Canada - Vancouver
+
+    "en-il-ta": ["en-il", 96, "Continue"], # English - Israel - Tel Aviv
+    "en-il-js": ["en-il", 97, "Continue"], # English - Israel - Jerusalem
 }
