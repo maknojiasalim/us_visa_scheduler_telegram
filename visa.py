@@ -236,7 +236,7 @@ if __name__ == "__main__":
             Req_count = 0
             start_process()
             current_appointment_date = get_current_appointment_date()
-            # send_notification('FIRST_RUN', f'Current appointment date: {current_appointment_date.strftime("%Y-%m-%d")}. Working...')
+            print('FIRST_RUN', f'Current appointment date: {current_appointment_date.strftime("%Y-%m-%d")}. Working...')
             first_loop = False
 
         Req_count += 1
@@ -276,7 +276,7 @@ if __name__ == "__main__":
                 info_logger(LOG_FILE_NAME, msg)
                 if total_time > WORK_LIMIT_TIME * hour:
                     # Let program rest a little
-                    # send_notification("REST", f"Break-time after {WORK_LIMIT_TIME} hours | Repeated {Req_count} times")
+                    print("REST", f"Break-time after {WORK_LIMIT_TIME} hours | Repeated {Req_count} times")
                     driver.get(SIGN_OUT_LINK)
                     time.sleep(WORK_COOLDOWN_TIME * hour)
                     first_loop = True
