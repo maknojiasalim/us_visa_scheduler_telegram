@@ -3,6 +3,7 @@ import json
 import random
 import requests
 import configparser
+import traceback
 from datetime import datetime
 
 from selenium import webdriver
@@ -62,10 +63,13 @@ HUB_ADDRESS = config['CHROMEDRIVER']['HUB_ADDRESS']
 
 SIGN_IN_LINK = f"https://ais.usvisa-info.com/{EMBASSY}/niv/users/sign_in"
 APPOINTMENT_URL = f"https://ais.usvisa-info.com/{EMBASSY}/niv/schedule/{SCHEDULE_ID}/appointment"
+PAYMENT_URL = f"https://ais.usvisa-info.com/{EMBASSY}/niv/schedule/{SCHEDULE_ID}/payment"
 DATE_URL = f"https://ais.usvisa-info.com/{EMBASSY}/niv/schedule/{SCHEDULE_ID}/appointment/days/{FACILITY_ID}.json?appointments[expedite]=false"
 TIME_URL = f"https://ais.usvisa-info.com/{EMBASSY}/niv/schedule/{SCHEDULE_ID}/appointment/times/{FACILITY_ID}.json?date=%s&appointments[expedite]=false"
 SIGN_OUT_LINK = f"https://ais.usvisa-info.com/{EMBASSY}/niv/users/sign_out"
 GROUP_LINK = f"https://ais.usvisa-info.com/en-il/niv/groups/{GROUP_ID}"
+
+NO_APPOINTMENT_AVAILABLE_STATUS = 'No Appointments Available'
 
 JS_SCRIPT = ("var req = new XMLHttpRequest();"
              f"req.open('GET', '%s', false);"
@@ -161,6 +165,21 @@ def get_date():
     content = driver.execute_script(script)
     return json.loads(content)
 
+def get_first_available_appointments():
+    driver.get(PAYMENT_URL)
+    res = {}
+    for i in range(1, 3):
+        location = driver.find_elements(by=By.XPATH, value=f'//*[@id="paymentOptions"]/div[2]/table/tbody/tr[{i}]/td[1]')
+        status = driver.find_elements(by=By.XPATH, value=f'//*[@id="paymentOptions"]/div[2]/table/tbody/tr[{i}]/td[2]')
+        if not location or not status:
+            return {'location': location, 'status': status}
+        location = location[0].text
+        status = status[0].text
+        if status != NO_APPOINTMENT_AVAILABLE_STATUS:
+            res[location] = status
+    return res
+
+
 def get_time(date):
     time_url = TIME_URL % date
     session = driver.get_cookie("_yatri_session")["value"]
@@ -184,7 +203,7 @@ def is_logged_in():
     return True
 
 
-def get_available_date(dates, current_appointment_date):
+def get_available_date(dates, current_appointment_date=None):
     # Evaluation of different available dates
     def is_in_period(date, PSD, PED):
         new_date = datetime.strptime(date, "%Y-%m-%d")
@@ -223,51 +242,30 @@ else:
 if __name__ == "__main__":
     first_loop = True
     previous_date = str(datetime.now().date())
-    current_appointment_date = None
     while 1:
-        current_date = str(datetime.now().date())
-        LOG_FILE_NAME = f"log_{current_date}.txt"
-        if current_date != previous_date:
-            send_notification('NEW_DAY', f'Its a new day. No news. Still working...')
-        previous_date = current_date
-        if first_loop:
-            t0 = time.time()
-            total_time = 0
-            Req_count = 0
-            start_process()
-            current_appointment_date = get_current_appointment_date()
-            print('FIRST_RUN', f'Current appointment date: {current_appointment_date.strftime("%Y-%m-%d")}. Working...')
-            first_loop = False
-
-        Req_count += 1
         try:
+            current_date = str(datetime.now().date())
+            LOG_FILE_NAME = f"log_{current_date}.txt"
+            if current_date != previous_date:
+                send_notification('NEW_DAY', f'Its a new day. No news. Still working...')
+            previous_date = current_date
+            if first_loop:
+                t0 = time.time()
+                total_time = 0
+                Req_count = 0
+                start_process()
+                first_loop = False
+
+            Req_count += 1
             msg = "-" * 60 + f"\nRequest count: {Req_count}, Log time: {datetime.today()}\n"
             print(msg)
             info_logger(LOG_FILE_NAME, msg)
-            dates = get_date()
-            if not dates:
-                # Ban Situation
-                msg = f"List is empty, Probabely banned!\n\tSleep for {BAN_COOLDOWN_TIME} hours!\n"
-                print(msg)
-                info_logger(LOG_FILE_NAME, msg)
-                # send_notification("BAN", msg)
-                driver.get(SIGN_OUT_LINK)
-                time.sleep(BAN_COOLDOWN_TIME * hour)
-                first_loop = True
+            dates = get_first_available_appointments()
+            if dates:
+                send_notification('SUCCESS', json.dumps(dates))
             else:
-                # Print Available dates:
-                msg = ""
-                for d in dates:
-                    msg = msg + "%s" % (d.get('date')) + ", "
-                msg = "Available dates:\n"+ msg
-                print(msg)
-                info_logger(LOG_FILE_NAME, msg)
-                date = get_available_date(dates, current_appointment_date)
-                if date:
-                    # A good date to schedule for
-                    END_MSG_TITLE, msg = reschedule(date)
-                    send_notification(END_MSG_TITLE, msg)
-                    current_appointment_date = date
+                time.sleep(random.randint(RETRY_TIME_L_BOUND, RETRY_TIME_U_BOUND))
+
                 RETRY_WAIT_TIME = random.randint(RETRY_TIME_L_BOUND, RETRY_TIME_U_BOUND)
                 t1 = time.time()
                 total_time = t1 - t0
@@ -287,9 +285,11 @@ if __name__ == "__main__":
                     time.sleep(RETRY_WAIT_TIME)
         except:
             # Exception Occured
-            msg = f"Break the loop after exception!\n"
+            msg = f"Break the loop after exception! I will continue in a few minutes\n"
             END_MSG_TITLE = "EXCEPTION"
-            break
+            traceback.print_exc()
+            send_notification(END_MSG_TITLE, msg)
+            time.sleep(random.randint(RETRY_TIME_L_BOUND, RETRY_TIME_U_BOUND))
 
 print(msg)
 info_logger(LOG_FILE_NAME, msg)
