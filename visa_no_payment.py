@@ -69,15 +69,6 @@ TIME_URL = f"https://ais.usvisa-info.com/{EMBASSY}/niv/schedule/{SCHEDULE_ID}/ap
 SIGN_OUT_LINK = f"https://ais.usvisa-info.com/{EMBASSY}/niv/users/sign_out"
 GROUP_LINK = f"https://ais.usvisa-info.com/en-il/niv/groups/{GROUP_ID}"
 
-NO_APPOINTMENT_AVAILABLE_STATUS = 'No Appointments Available'
-
-JS_SCRIPT = ("var req = new XMLHttpRequest();"
-             f"req.open('GET', '%s', false);"
-             "req.setRequestHeader('Accept', 'application/json, text/javascript, */*; q=0.01');"
-             "req.setRequestHeader('X-Requested-With', 'XMLHttpRequest');"
-             f"req.setRequestHeader('Cookie', '_yatri_session=%s');"
-             "req.send(null);"
-             "return req.responseText;")
 
 def send_notification(title, msg):
     print(f"Sending notification!")
@@ -131,39 +122,6 @@ def start_process():
     Wait(driver, 60).until(EC.presence_of_element_located((By.XPATH, "//a[contains(text(), '" + REGEX_CONTINUE + "')]")))
     print("\n\tlogin successful!\n")
 
-def reschedule(date):
-    time = get_time(date)
-    driver.get(APPOINTMENT_URL)
-    headers = {
-        "User-Agent": driver.execute_script("return navigator.userAgent;"),
-        "Referer": APPOINTMENT_URL,
-        "Cookie": "_yatri_session=" + driver.get_cookie("_yatri_session")["value"]
-    }
-    data = {
-        "utf8": driver.find_element(by=By.NAME, value='utf8').get_attribute('value'),
-        "authenticity_token": driver.find_element(by=By.NAME, value='authenticity_token').get_attribute('value'),
-        "confirmed_limit_message": driver.find_element(by=By.NAME, value='confirmed_limit_message').get_attribute('value'),
-        "use_consulate_appointment_capacity": driver.find_element(by=By.NAME, value='use_consulate_appointment_capacity').get_attribute('value'),
-        "appointments[consulate_appointment][facility_id]": FACILITY_ID,
-        "appointments[consulate_appointment][date]": date,
-        "appointments[consulate_appointment][time]": time,
-    }
-    r = requests.post(APPOINTMENT_URL, headers=headers, data=data)
-    if(r.text.find('Successfully Scheduled') != -1):
-        title = "SUCCESS"
-        msg = f"Rescheduled Successfully! {date} {time}"
-    else:
-        title = "FAIL"
-        msg = f"Reschedule Failed!!! {date} {time}"
-    return [title, msg]
-
-
-def get_date():
-    # Requesting to get the whole available dates
-    session = driver.get_cookie("_yatri_session")["value"]
-    script = JS_SCRIPT % (str(DATE_URL), session)
-    content = driver.execute_script(script)
-    return json.loads(content)
 
 def get_first_available_appointments():
     driver.get(PAYMENT_URL)
@@ -175,25 +133,8 @@ def get_first_available_appointments():
             return {'location': location, 'status': status}
         location = location[0].text
         status = status[0].text
-        if status != NO_APPOINTMENT_AVAILABLE_STATUS:
-            res[location] = status
+        res[location] = status
     return res
-
-
-def get_time(date):
-    time_url = TIME_URL % date
-    session = driver.get_cookie("_yatri_session")["value"]
-    script = JS_SCRIPT % (str(time_url), session)
-    content = driver.execute_script(script)
-    data = json.loads(content)
-    time = data.get("available_times")[-1]
-    print(f"Got time successfully! {date} {time}")
-    return time
-
-def get_current_appointment_date():
-    driver.get(GROUP_LINK)
-    date_str = ' '.join(driver.find_elements(by=By.CLASS_NAME, value="consular-appt")[0].text.split(' ')[2:5])
-    return datetime.strptime(date_str, '%d %B, %Y,')
 
 
 def is_logged_in():
@@ -242,6 +183,7 @@ else:
 if __name__ == "__main__":
     first_loop = True
     previous_date = str(datetime.now().date())
+    prev_available_appointments = None
     while 1:
         try:
             current_date = str(datetime.now().date())
@@ -260,12 +202,12 @@ if __name__ == "__main__":
             msg = "-" * 60 + f"\nRequest count: {Req_count}, Log time: {datetime.today()}\n"
             print(msg)
             info_logger(LOG_FILE_NAME, msg)
-            dates = get_first_available_appointments()
-            if dates:
-                send_notification('SUCCESS', json.dumps(dates))
+            appointments = get_first_available_appointments()
+            if prev_available_appointments is None:
+                prev_available_appointments = appointments
+            if appointments != prev_available_appointments:
+                send_notification('SUCCESS', json.dumps(appointments))
             else:
-                time.sleep(random.randint(RETRY_TIME_L_BOUND, RETRY_TIME_U_BOUND))
-
                 RETRY_WAIT_TIME = random.randint(RETRY_TIME_L_BOUND, RETRY_TIME_U_BOUND)
                 t1 = time.time()
                 total_time = t1 - t0
