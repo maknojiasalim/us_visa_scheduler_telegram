@@ -39,7 +39,7 @@ REGEX_CONTINUE = Embassies[YOUR_EMBASSY][2]
 # Notification:
 TELEGRAM_BOT_TOKEN = config['NOTIFICATION']['TELEGRAM_BOT_TOKEN']
 TELEGRAM_CHAT_ID = config['NOTIFICATION']['TELEGRAM_CHAT_ID']
-TELEGRAM_MESSAGE_THREAD_ID = config['NOTIFICATION']['TELEGRAM_MESSAGE_THREAD_ID']
+# TELEGRAM_MESSAGE_THREAD_ID = config['NOTIFICATION']['TELEGRAM_MESSAGE_THREAD_ID']
 
 # Time Section:
 minute = 60
@@ -82,7 +82,7 @@ def send_notification(title, msg):
         url = f'https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage'
         data = {
             'chat_id': TELEGRAM_CHAT_ID,
-            'message_thread_id': TELEGRAM_MESSAGE_THREAD_ID,
+            # 'message_thread_id': TELEGRAM_MESSAGE_THREAD_ID,
             'text': msg,
         }
         requests.post(url, data)
