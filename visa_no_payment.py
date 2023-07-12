@@ -39,7 +39,7 @@ REGEX_CONTINUE = Embassies[YOUR_EMBASSY][2]
 # Notification:
 TELEGRAM_BOT_TOKEN = config['NOTIFICATION']['TELEGRAM_BOT_TOKEN']
 TELEGRAM_CHAT_ID = config['NOTIFICATION']['TELEGRAM_CHAT_ID']
-TELEGRAM_MESSAGE_THREAD_ID = config['NOTIFICATION']['TELEGRAM_MESSAGE_THREAD_ID']
+# TELEGRAM_MESSAGE_THREAD_ID = config['NOTIFICATION']['TELEGRAM_MESSAGE_THREAD_ID']
 
 # Time Section:
 minute = 60
@@ -76,7 +76,7 @@ def send_notification(title, msg):
         url = f'https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage'
         data = {
             'chat_id': TELEGRAM_CHAT_ID,
-            'message_thread_id': TELEGRAM_MESSAGE_THREAD_ID,
+            # 'message_thread_id': TELEGRAM_MESSAGE_THREAD_ID,
             'text': msg,
         }
         requests.post(url, data)
@@ -189,7 +189,7 @@ if __name__ == "__main__":
             current_date = str(datetime.now().date())
             LOG_FILE_NAME = f"log_{current_date}.txt"
             if current_date != previous_date:
-                send_notification('NEW_DAY', f'Its a new day. No news. Still working...')
+                prev_available_appointments = None
             previous_date = current_date
             if first_loop:
                 t0 = time.time()
@@ -203,8 +203,6 @@ if __name__ == "__main__":
             print(msg)
             info_logger(LOG_FILE_NAME, msg)
             appointments = get_first_available_appointments()
-            if prev_available_appointments is None:
-                prev_available_appointments = appointments
             if appointments != prev_available_appointments:
                 send_notification('SUCCESS', json.dumps(appointments))
             else:
@@ -225,6 +223,7 @@ if __name__ == "__main__":
                     print(msg)
                     info_logger(LOG_FILE_NAME, msg)
                     time.sleep(RETRY_WAIT_TIME)
+            prev_available_appointments = appointments
         except:
             # Exception Occured
             msg = f"Break the loop after exception! I will continue in a few minutes\n"

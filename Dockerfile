@@ -10,5 +10,5 @@ COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Run script
-CMD [ "python", "./visa_no_payment.py" ]
-# CMD [ "python", "./visa_reschedule.py" ]
+# CMD [ "python", "./visa_no_payment.py" ]
+CMD [ "python", "./visa_reschedule.py" ]

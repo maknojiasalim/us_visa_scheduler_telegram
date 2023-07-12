@@ -2,6 +2,7 @@ import time
 import json
 import random
 import requests
+import traceback
 import configparser
 from datetime import datetime
 
@@ -173,7 +174,10 @@ def get_time(date):
 
 def get_current_appointment_date():
     driver.get(GROUP_LINK)
-    date_str = ' '.join(driver.find_elements(by=By.CLASS_NAME, value="consular-appt")[0].text.split(' ')[2:5])
+    elements = driver.find_elements(by=By.CLASS_NAME, value="consular-appt")
+    if not elements:
+        return datetime(year=2024, month=12, day=31)
+    date_str = ' '.join(elements[0].text.split(' ')[2:5])
     return datetime.strptime(date_str, '%d %B, %Y,')
 
 
@@ -225,35 +229,34 @@ if __name__ == "__main__":
     previous_date = str(datetime.now().date())
     current_appointment_date = None
     while 1:
-        current_date = str(datetime.now().date())
-        LOG_FILE_NAME = f"log_{current_date}.txt"
-        if current_date != previous_date:
-            send_notification('NEW_DAY', f'Its a new day. No news. Still working...')
-        previous_date = current_date
-        if first_loop:
-            t0 = time.time()
-            total_time = 0
-            Req_count = 0
-            start_process()
-            current_appointment_date = get_current_appointment_date()
-            print('FIRST_RUN', f'Current appointment date: {current_appointment_date.strftime("%Y-%m-%d")}. Working...')
-            first_loop = False
-
-        Req_count += 1
         try:
+            current_date = str(datetime.now().date())
+            LOG_FILE_NAME = f"log_{current_date}.txt"
+            if current_date != previous_date:
+                send_notification('NEW_DAY', f'Its a new day. No news. Still working...')
+            previous_date = current_date
+            if first_loop:
+                t0 = time.time()
+                total_time = 0
+                Req_count = 0
+                start_process()
+                current_appointment_date = get_current_appointment_date()
+                print('FIRST_RUN', f'Current appointment date: {current_appointment_date.strftime("%Y-%m-%d")}. Working...')
+                first_loop = False
+
+            Req_count += 1
             msg = "-" * 60 + f"\nRequest count: {Req_count}, Log time: {datetime.today()}\n"
             print(msg)
             info_logger(LOG_FILE_NAME, msg)
             dates = get_date()
             if not dates:
-                # Ban Situation
-                msg = f"List is empty, Probabely banned!\n\tSleep for {BAN_COOLDOWN_TIME} hours!\n"
-                print(msg)
+                # Ban Situation or just no slots
+                print('List is empty')
                 info_logger(LOG_FILE_NAME, msg)
                 # send_notification("BAN", msg)
-                driver.get(SIGN_OUT_LINK)
-                time.sleep(BAN_COOLDOWN_TIME * hour)
-                first_loop = True
+                # driver.get(SIGN_OUT_LINK)
+                # time.sleep(BAN_COOLDOWN_TIME * hour)
+                # first_loop = True
             else:
                 # Print Available dates:
                 msg = ""
@@ -268,28 +271,35 @@ if __name__ == "__main__":
                     END_MSG_TITLE, msg = reschedule(date)
                     send_notification(END_MSG_TITLE, msg)
                     current_appointment_date = date
-                RETRY_WAIT_TIME = random.randint(RETRY_TIME_L_BOUND, RETRY_TIME_U_BOUND)
-                t1 = time.time()
-                total_time = t1 - t0
-                msg = "\nWorking Time:  ~ {:.2f} minutes".format(total_time/minute)
+            RETRY_WAIT_TIME = random.randint(RETRY_TIME_L_BOUND, RETRY_TIME_U_BOUND)
+            t1 = time.time()
+            total_time = t1 - t0
+            msg = "\nWorking Time:  ~ {:.2f} minutes".format(total_time/minute)
+            print(msg)
+            info_logger(LOG_FILE_NAME, msg)
+            if total_time > WORK_LIMIT_TIME * hour:
+                # Let program rest a little
+                print("REST", f"Break-time after {WORK_LIMIT_TIME} hours | Repeated {Req_count} times")
+                driver.get(SIGN_OUT_LINK)
+                time.sleep(WORK_COOLDOWN_TIME * hour)
+                first_loop = True
+            else:
+                msg = "Retry Wait Time: "+ str(RETRY_WAIT_TIME)+ " seconds"
                 print(msg)
                 info_logger(LOG_FILE_NAME, msg)
-                if total_time > WORK_LIMIT_TIME * hour:
-                    # Let program rest a little
-                    print("REST", f"Break-time after {WORK_LIMIT_TIME} hours | Repeated {Req_count} times")
-                    driver.get(SIGN_OUT_LINK)
-                    time.sleep(WORK_COOLDOWN_TIME * hour)
-                    first_loop = True
-                else:
-                    msg = "Retry Wait Time: "+ str(RETRY_WAIT_TIME)+ " seconds"
-                    print(msg)
-                    info_logger(LOG_FILE_NAME, msg)
-                    time.sleep(RETRY_WAIT_TIME)
+                time.sleep(RETRY_WAIT_TIME)
         except:
             # Exception Occured
-            msg = f"Break the loop after exception!\n"
-            END_MSG_TITLE = "EXCEPTION"
-            break
+            # msg = f"Break the loop after exception! I will continue in a few minutes\n"
+            # END_MSG_TITLE = "EXCEPTION"
+            traceback.print_exc()
+            # send_notification(END_MSG_TITLE, msg)
+            time.sleep(BAN_COOLDOWN_TIME)
+            first_loop = True
+            try:
+                driver.get(SIGN_OUT_LINK)
+            except:
+                traceback.print_exc()
 
 print(msg)
 info_logger(LOG_FILE_NAME, msg)
