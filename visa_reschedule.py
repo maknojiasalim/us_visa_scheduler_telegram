@@ -176,7 +176,7 @@ def get_current_appointment_date():
     driver.get(GROUP_LINK)
     elements = driver.find_elements(by=By.CLASS_NAME, value="consular-appt")
     if not elements:
-        return datetime(year=2024, month=12, day=31)
+        return datetime.strptime(PRIOD_END, "%Y-%m-%d")
     date_str = ' '.join(elements[0].text.split(' ')[2:5])
     return datetime.strptime(date_str, '%d %B, %Y,')
 
