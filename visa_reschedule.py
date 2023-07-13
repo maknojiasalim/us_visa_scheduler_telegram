@@ -1,3 +1,4 @@
+import argparse
 import time
 import json
 import random
@@ -16,8 +17,12 @@ from webdriver_manager.chrome import ChromeDriverManager
 
 from embassy import *
 
+parser = argparse.ArgumentParser()
+parser.add_argument('--config', default='config.ini')
+args = parser.parse_args()
+
 config = configparser.ConfigParser()
-config.read('config.ini')
+config.read(args.config)
 
 # Personal Info:
 # Account and current appointment info from https://ais.usvisa-info.com
@@ -155,7 +160,7 @@ def reschedule(date):
     return [title, msg]
 
 
-def get_date():
+def get_dates():
     # Requesting to get the whole available dates
     session = driver.get_cookie("_yatri_session")["value"]
     script = JS_SCRIPT % (str(DATE_URL), session)
@@ -227,6 +232,7 @@ else:
 if __name__ == "__main__":
     first_loop = True
     previous_date = str(datetime.now().date())
+    previous_available_dates = ''
     current_appointment_date = None
     while 1:
         try:
@@ -248,8 +254,8 @@ if __name__ == "__main__":
             msg = "-" * 60 + f"\nRequest count: {Req_count}, Log time: {datetime.today()}\n"
             print(msg)
             info_logger(LOG_FILE_NAME, msg)
-            dates = get_date()
-            if not dates:
+            available_dates = get_dates()
+            if not available_dates:
                 # Ban Situation or just no slots
                 print('List is empty')
                 info_logger(LOG_FILE_NAME, msg)
@@ -260,17 +266,20 @@ if __name__ == "__main__":
             else:
                 # Print Available dates:
                 msg = ""
-                for d in dates:
+                for d in available_dates:
                     msg = msg + "%s" % (d.get('date')) + ", "
-                msg = "Available dates:\n"+ msg
+                msg = f'Available dates in {EMBASSY}:\n {msg}'
                 print(msg)
+                if available_dates != previous_available_dates:
+                    send_notification('dates_available', msg)
                 info_logger(LOG_FILE_NAME, msg)
-                date = get_available_date(dates, current_appointment_date)
+                date = get_available_date(available_dates, current_appointment_date)
                 if date:
                     # A good date to schedule for
                     END_MSG_TITLE, msg = reschedule(date)
                     send_notification(END_MSG_TITLE, msg)
                     current_appointment_date = date
+                previous_available_dates = available_dates
             RETRY_WAIT_TIME = random.randint(RETRY_TIME_L_BOUND, RETRY_TIME_U_BOUND)
             t1 = time.time()
             total_time = t1 - t0

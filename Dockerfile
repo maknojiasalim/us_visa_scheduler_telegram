@@ -1,6 +1,5 @@
 FROM python:3
 WORKDIR /app
-COPY . .
 
 # Install some libs for chromedriver
 RUN apt-get update && apt-get install -y chromium
@@ -9,6 +8,4 @@ RUN apt-get update && apt-get install -y chromium
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Run script
-# CMD [ "python", "./visa_no_payment.py" ]
-CMD [ "python", "./visa_reschedule.py" ]
+# COPY . .

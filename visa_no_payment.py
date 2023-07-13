@@ -1,3 +1,4 @@
+import argparse
 import time
 import json
 import random
@@ -16,8 +17,12 @@ from webdriver_manager.chrome import ChromeDriverManager
 
 from embassy import *
 
+parser = argparse.ArgumentParser()
+parser.add_argument('--config', default='config.ini')
+args = parser.parse_args()
+
 config = configparser.ConfigParser()
-config.read('config.ini')
+config.read(args.config)
 
 # Personal Info:
 # Account and current appointment info from https://ais.usvisa-info.com
@@ -130,7 +135,7 @@ def get_first_available_appointments():
         location = driver.find_elements(by=By.XPATH, value=f'//*[@id="paymentOptions"]/div[2]/table/tbody/tr[{i}]/td[1]')
         status = driver.find_elements(by=By.XPATH, value=f'//*[@id="paymentOptions"]/div[2]/table/tbody/tr[{i}]/td[2]')
         if not location or not status:
-            return {'location': location, 'status': status}
+            return None
         location = location[0].text
         status = status[0].text
         res[location] = status
@@ -203,7 +208,7 @@ if __name__ == "__main__":
             print(msg)
             info_logger(LOG_FILE_NAME, msg)
             appointments = get_first_available_appointments()
-            if appointments != prev_available_appointments:
+            if appointments is not None and appointments != prev_available_appointments:
                 send_notification('SUCCESS', json.dumps(appointments))
             else:
                 RETRY_WAIT_TIME = random.randint(RETRY_TIME_L_BOUND, RETRY_TIME_U_BOUND)
@@ -223,13 +228,14 @@ if __name__ == "__main__":
                     print(msg)
                     info_logger(LOG_FILE_NAME, msg)
                     time.sleep(RETRY_WAIT_TIME)
-            prev_available_appointments = appointments
+            if appointments is not None:
+                prev_available_appointments = appointments
         except:
             # Exception Occured
             msg = f"Break the loop after exception! I will continue in a few minutes\n"
             END_MSG_TITLE = "EXCEPTION"
             traceback.print_exc()
-            send_notification(END_MSG_TITLE, msg)
+            # send_notification(END_MSG_TITLE, msg)
             time.sleep(random.randint(RETRY_TIME_L_BOUND, RETRY_TIME_U_BOUND))
 
 print(msg)
