@@ -187,15 +187,9 @@ else:
 
 if __name__ == "__main__":
     first_loop = True
-    previous_date = str(datetime.now().date())
     prev_available_appointments = None
     while 1:
         try:
-            current_date = str(datetime.now().date())
-            LOG_FILE_NAME = f"log_{current_date}.txt"
-            if current_date != previous_date:
-                prev_available_appointments = None
-            previous_date = current_date
             if first_loop:
                 t0 = time.time()
                 total_time = 0
@@ -206,17 +200,15 @@ if __name__ == "__main__":
             Req_count += 1
             msg = "-" * 60 + f"\nRequest count: {Req_count}, Log time: {datetime.today()}\n"
             print(msg)
-            info_logger(LOG_FILE_NAME, msg)
             appointments = get_first_available_appointments()
-            if appointments is not None and appointments != prev_available_appointments:
-                send_notification('SUCCESS', json.dumps(appointments))
+            if appointments is not None and prev_available_appointments is not None and appointments != prev_available_appointments:
+                send_notification('SUCCESS', json.dumps(appointments, sort_keys=True))
             else:
                 RETRY_WAIT_TIME = random.randint(RETRY_TIME_L_BOUND, RETRY_TIME_U_BOUND)
                 t1 = time.time()
                 total_time = t1 - t0
                 msg = "\nWorking Time:  ~ {:.2f} minutes".format(total_time/minute)
                 print(msg)
-                info_logger(LOG_FILE_NAME, msg)
                 if total_time > WORK_LIMIT_TIME * hour:
                     # Let program rest a little
                     print("REST", f"Break-time after {WORK_LIMIT_TIME} hours | Repeated {Req_count} times")
@@ -226,7 +218,6 @@ if __name__ == "__main__":
                 else:
                     msg = "Retry Wait Time: "+ str(RETRY_WAIT_TIME)+ " seconds"
                     print(msg)
-                    info_logger(LOG_FILE_NAME, msg)
                     time.sleep(RETRY_WAIT_TIME)
             if appointments is not None:
                 prev_available_appointments = appointments
@@ -239,7 +230,6 @@ if __name__ == "__main__":
             time.sleep(random.randint(RETRY_TIME_L_BOUND, RETRY_TIME_U_BOUND))
 
 print(msg)
-info_logger(LOG_FILE_NAME, msg)
 send_notification(END_MSG_TITLE, msg)
 driver.get(SIGN_OUT_LINK)
 driver.stop_client()
