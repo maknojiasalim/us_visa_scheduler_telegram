@@ -81,6 +81,7 @@ JS_SCRIPT = ("var req = new XMLHttpRequest();"
              "req.send(null);"
              "return req.responseText;")
 
+
 def send_notification(title, msg):
     print(f"Sending notification!")
     if TELEGRAM_BOT_TOKEN:

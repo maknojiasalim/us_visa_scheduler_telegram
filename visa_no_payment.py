@@ -32,9 +32,6 @@ PASSWORD = config['PERSONAL_INFO']['PASSWORD']
 # https://ais.usvisa-info.com/en-am/niv/schedule/{SCHEDULE_ID}/appointment
 SCHEDULE_ID = config['PERSONAL_INFO']['SCHEDULE_ID']
 GROUP_ID = config['PERSONAL_INFO']['GROUP_ID']
-# Target Period:
-PRIOD_START = config['PERSONAL_INFO']['PRIOD_START']
-PRIOD_END = config['PERSONAL_INFO']['PRIOD_END']
 # Embassy Section:
 YOUR_EMBASSY = config['PERSONAL_INFO']['YOUR_EMBASSY']
 EMBASSY = Embassies[YOUR_EMBASSY][0]
@@ -126,6 +123,7 @@ def start_process():
     auto_action("Enter Panel", "name", "commit", "click", "", STEP_TIME)
     Wait(driver, 60).until(EC.presence_of_element_located((By.XPATH, "//a[contains(text(), '" + REGEX_CONTINUE + "')]")))
     print("\n\tlogin successful!\n")
+    print(f'Cookies: {driver.get_cookies()}')
 
 
 def get_first_available_appointments():
@@ -140,38 +138,6 @@ def get_first_available_appointments():
         status = status[0].text
         res[location] = status
     return res
-
-
-def is_logged_in():
-    content = driver.page_source
-    if(content.find("error") != -1):
-        return False
-    return True
-
-
-def get_available_date(dates, current_appointment_date=None):
-    # Evaluation of different available dates
-    def is_in_period(date, PSD, PED):
-        new_date = datetime.strptime(date, "%Y-%m-%d")
-        result = ( PED > new_date and new_date > PSD )
-        # print(f'{new_date.date()} : {result}', end=", ")
-        return result
-
-    PED = datetime.strptime(PRIOD_END, "%Y-%m-%d")
-    if current_appointment_date:
-        PED = min(PED, current_appointment_date)
-    PSD = datetime.strptime(PRIOD_START, "%Y-%m-%d")
-    for d in dates:
-        date = d.get('date')
-        if is_in_period(date, PSD, PED):
-            return date
-    print(f"\n\nNo available dates between ({PSD.date()}) and ({PED.date()})!")
-
-
-def info_logger(file_path, log):
-    # file_path: e.g. "log.txt"
-    with open(file_path, "a") as file:
-        file.write(str(datetime.now().time()) + ":\n" + log + "\n")
 
 
 if LOCAL_USE:
@@ -201,7 +167,10 @@ if __name__ == "__main__":
             msg = "-" * 60 + f"\nRequest count: {Req_count}, Log time: {datetime.today()}\n"
             print(msg)
             appointments = get_first_available_appointments()
-            if appointments is not None and prev_available_appointments is not None and appointments != prev_available_appointments:
+            if all(x == "No Appointments Available" for x in appointments.values()):
+                print(f'Probably banned, cooldown for {BAN_COOLDOWN_TIME}h')
+                time.sleep(BAN_COOLDOWN_TIME * hour)
+            if appointments is not None and appointments != prev_available_appointments:
                 send_notification('SUCCESS', json.dumps(appointments, sort_keys=True))
             else:
                 RETRY_WAIT_TIME = random.randint(RETRY_TIME_L_BOUND, RETRY_TIME_U_BOUND)
