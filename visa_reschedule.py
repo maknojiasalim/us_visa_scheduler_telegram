@@ -260,10 +260,10 @@ if __name__ == "__main__":
                 # Ban Situation or just no slots
                 print('List is empty')
                 info_logger(LOG_FILE_NAME, msg)
-                # send_notification("BAN", msg)
-                # driver.get(SIGN_OUT_LINK)
-                # time.sleep(BAN_COOLDOWN_TIME * hour)
-                # first_loop = True
+                send_notification("BAN", msg)
+                driver.get(SIGN_OUT_LINK)
+                time.sleep(BAN_COOLDOWN_TIME * hour)
+                first_loop = True
             else:
                 # Print Available dates:
                 msg = ""
