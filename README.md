@@ -2,7 +2,13 @@
 The visa_rescheduler is a bot for US VISA (usvisa-info.com) appointment rescheduling. This bot can help you reschedule your appointment to your desired time period.
 
 ## How to use
-`./run_docker.sh`
+1. Install some libs for chromedriver. run this as docker. session timeout is 2hrs
+sudo docker run --network=XXXXX --name=selenium-chrome --ip=192.168.0.XX -e SE_NODE_SESSION_TIMEOUT=7200 -d -p 4444:4444 selenium/standalone-chrome
+
+2. remove .example from config.ini and edit required config
+
+3. ./run_docker_rechedule.sh
+
 
 FACILITY_ID = 17 for London
 
